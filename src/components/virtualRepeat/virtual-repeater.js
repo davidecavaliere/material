@@ -349,13 +349,14 @@ function VirtualRepeatDirective($parse) {
 
 
 /** @ngInject */
-function VirtualRepeatController($scope, $element, $attrs, $browser, $document, $$rAF) {
+function VirtualRepeatController($scope, $element, $attrs, $browser, $document, $$rAF, $mdUtil) {
   this.$scope = $scope;
   this.$element = $element;
   this.$attrs = $attrs;
   this.$browser = $browser;
   this.$document = $document;
   this.$$rAF = $$rAF;
+  this.$mdUtil = $mdUtil;
 
   /** @type {boolean} Whether we are in on-demand mode. */
   this.onDemand = $attrs.hasOwnProperty('mdOnDemand');
@@ -656,12 +657,33 @@ VirtualRepeatController.prototype.getBlock_ = function(index) {
  * @private
  */
 VirtualRepeatController.prototype.updateBlock_ = function(block, index) {
+  var item = block.scope.item;
+
+  // TODO we need to figure out if item
+  // is an instance of Resource (ngResource)
+  if (angular.isFunction(item.$getByIndex)) {
+    // check if resource is already resolved
+
+    var callService = function(index) {
+      item.$getByIndex({ skip : index });
+    };
+
+    if (angular.isDefined(item.$resolved) && item.$resolved) {
+      // TODO set timeout to refresh element even if is resolved
+    } else {
+      // TODO should calculate this value on an estimation of latency of the server
+      var latency = 500;
+      this.$mdUtil.debounce(callService, latency)(index);
+    }
+  }
+
   this.blocks[index] = block;
 
   if (!block.new &&
       (block.scope.$index === index && block.scope[this.repeatName] === this.items[index])) {
     return;
   }
+
   block.new = false;
 
   // Update and digest the block's scope.
